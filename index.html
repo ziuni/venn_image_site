@@ -47,6 +47,7 @@
     .secondary-btn:hover { background: #e7e9ef; }
     .danger-btn { background: #fff0f0; color: #c34646; }
     .danger-btn:hover { background: #ffe4e4; }
+    .danger-btn:disabled { opacity: .45; cursor: not-allowed; }
     button:active { transform: translateY(1px); }
     .full { width: 100%; }
     .section { padding: 15px 0; border-top: 1px solid #eff0f3; }
@@ -148,6 +149,7 @@
             <div class="image-list-empty">아직 추가한 이미지가 없습니다.</div>
           </div>
           <p class="tiny-note">목록에서 이미지를 누르면 선택할 수 있습니다. 작업 영역이나 위 업로드 상자에 파일을 놓아도 추가됩니다.</p>
+          <button class="danger-btn full" id="clearAllImages" type="button" disabled>이미지 전체 삭제</button>
         </div>
 
         <div class="section">
@@ -188,7 +190,7 @@
             </div>
           </div>
 
-          <label class="check-row"><input id="lockAspect" type="checkbox" /> 가로·세로를 함께 조절 (비율 유지)</label>
+          <label class="check-row"><input id="lockAspect" type="checkbox" checked /> 가로·세로를 함께 조절 (비율 유지)</label>
           <div class="section-title" style="margin-top:15px"><label for="spread">원 사이 간격</label><output id="spreadOut">120</output></div>
           <input id="spread" type="range" min="80" max="180" value="120" />
           <p class="tiny-note">공통 모드는 세 원을 같은 크기로, 원별 개별 모드는 각각 다른 크기로 조절합니다. 비율 유지를 켜면 가로나 세로를 바꿀 때 다른 축도 함께 커지거나 작아집니다.</p>
@@ -232,6 +234,7 @@
       const dropZone = document.getElementById('dropZone');
       const imageList = document.getElementById('imageList');
       const imageCount = document.getElementById('imageCount');
+      const clearAllImagesButton = document.getElementById('clearAllImages');
       const radiusXInput = document.getElementById('radiusX');
       const radiusYInput = document.getElementById('radiusY');
       const sharedShapeControls = document.getElementById('sharedShapeControls');
@@ -255,9 +258,9 @@
         { fill: 'rgba(99,185,160,.27)', stroke: 'rgba(63,157,131,.9)' }
       ];
       let circles = [
-        { title: '가', color: palette[0], rx: 220, ry: 220 },
-        { title: '나', color: palette[1], rx: 220, ry: 220 },
-        { title: '다', color: palette[2], rx: 220, ry: 220 }
+        { title: '외모', color: palette[0], rx: 220, ry: 220 },
+        { title: '성격', color: palette[1], rx: 220, ry: 220 },
+        { title: '스토리', color: palette[2], rx: 220, ry: 220 }
       ];
       let shapeMode = 'shared';
       let spread = 120;
@@ -376,6 +379,7 @@
 
       function renderImageList() {
         imageCount.textContent = `${items.length}개`;
+        clearAllImagesButton.disabled = items.length === 0;
         const signature = JSON.stringify({
           selectedId,
           items: items.map(item => [item.id, item.name, Math.round(item.w), Math.round(item.h)])
@@ -501,8 +505,7 @@
         shapeMode = 'shared';
         spread = 120;
         lockAspectInput.checked = false;
-        <!--const defaults = ['외모', '성격', '스토리'];-->
-        const defaults = ['가', '나', '다'];
+        const defaults = ['외모', '성격', '스토리'];
         circles.forEach((circle, i) => {
           circle.title = defaults[i];
           circle.rx = 220;
@@ -770,6 +773,18 @@
         resetCircleSettings();
         render();
         notify('원만 초기화했습니다. 이미지는 그대로 유지됩니다.');
+      });
+
+      clearAllImagesButton.addEventListener('click', () => {
+        if (!items.length) return;
+        const confirmed = window.confirm('업로드한 이미지를 모두 삭제할까요? 원의 크기, 간격, 제목은 그대로 유지됩니다.');
+        if (!confirmed) return;
+        items = [];
+        selectedId = null;
+        pointerState = null;
+        updateSelectionUI();
+        render();
+        notify('이미지를 모두 삭제했습니다. 원 설정은 유지됩니다.');
       });
 
       document.getElementById('reset').addEventListener('click', () => {
