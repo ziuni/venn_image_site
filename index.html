@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>세 원 이미지 밴다이어그램</title>
+  <style>
+    :root {
+      --ink: #252a32;
+      --muted: #737b87;
+      --line: #e7e9ed;
+      --paper: #ffffff;
+      --wash: #f5f6f8;
+      --accent: #495bd6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #f3f4f7;
+      color: var(--ink);
+      font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
+    }
+    .app { max-width: 1440px; margin: 0 auto; padding: 34px 28px 48px; }
+    header { margin: 0 0 24px; }
+    .eyebrow { color: var(--accent); font-size: 12px; font-weight: 800; letter-spacing: .12em; margin-bottom: 9px; }
+    h1 { font-size: clamp(25px, 3vw, 36px); letter-spacing: -.045em; margin: 0 0 8px; }
+    .intro { color: var(--muted); font-size: 14px; margin: 0; line-height: 1.65; }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; align-items: start; }
+    .board-card, .panel { background: var(--paper); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 8px 30px rgba(26,32,44,.045); }
+    .board-card { padding: 16px; min-width: 0; }
+    .board-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 2px 2px 14px; }
+    .board-top strong { font-size: 14px; }
+    .board-top span { color: var(--muted); font-size: 12px; }
+    .canvas-wrap { width: 100%; position: relative; overflow: hidden; border-radius: 12px; background: #fbfbfd; border: 1px solid #eceef2; }
+    canvas { display: block; width: 100%; height: auto; aspect-ratio: 1000 / 720; touch-action: none; cursor: default; }
+    .drop-hint { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; color: #7e8592; font-size: 13px; opacity: .0; transition: opacity .15s; background: rgba(248,249,252,.45); }
+    .canvas-wrap.dragover .drop-hint { opacity: 1; }
+    .board-footer { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 13px 2px 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .panel { padding: 18px; }
+    .panel h2 { font-size: 15px; margin: 1px 0 15px; }
+    .upload-btn, .primary-btn, .secondary-btn, .danger-btn {
+      appearance: none; border: 0; border-radius: 10px; padding: 11px 14px; font: inherit; font-size: 13px; font-weight: 750; cursor: pointer; transition: transform .12s, background .12s;
+    }
+    .upload-btn, .primary-btn { background: var(--accent); color: white; }
+    .upload-btn:hover, .primary-btn:hover { background: #394bc5; }
+    .secondary-btn { background: #f0f1f5; color: #3c4350; }
+    .secondary-btn:hover { background: #e7e9ef; }
+    .danger-btn { background: #fff0f0; color: #c34646; }
+    .danger-btn:hover { background: #ffe4e4; }
+    button:active { transform: translateY(1px); }
+    .full { width: 100%; }
+    .section { padding: 15px 0; border-top: 1px solid #eff0f3; }
+    .section:first-of-type { border-top: 0; padding-top: 0; }
+    .section-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .section-title label, .field-label { font-size: 12px; font-weight: 750; }
+    .section-title output { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+    input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+    input[type="text"] { width: 100%; border: 1px solid #e2e5eb; border-radius: 9px; padding: 9px 10px; font: inherit; font-size: 13px; outline: none; background: white; color: var(--ink); }
+    input[type="text"]:focus { border-color: #aab3f5; box-shadow: 0 0 0 3px rgba(73,91,214,.09); }
+    .label-fields { display: grid; gap: 9px; }
+    .label-row { display: grid; grid-template-columns: 8px 1fr; gap: 9px; align-items: center; }
+    .swatch { width: 8px; height: 28px; border-radius: 8px; }
+    .image-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+    .image-actions button { padding: 9px 8px; }
+    .tiny-note { color: var(--muted); font-size: 11px; line-height: 1.55; margin: 9px 0 0; }
+    .empty-selection { padding: 10px 11px; background: #f7f8fa; border-radius: 9px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .save-row { display: grid; gap: 8px; padding-top: 15px; border-top: 1px solid #eff0f3; }
+    .toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 15px); background: #252a32; color: white; padding: 10px 15px; border-radius: 999px; font-size: 12px; opacity: 0; pointer-events: none; transition: all .2s; z-index: 5; box-shadow: 0 5px 20px rgba(0,0,0,.15); }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    .file-input { display: none; }
+    @media (max-width: 900px) {
+      .workspace { grid-template-columns: 1fr; }
+      .panel { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+      .panel h2 { grid-column: 1 / -1; }
+      .save-row { grid-column: 1 / -1; }
+    }
+    @media (max-width: 600px) {
+      .app { padding: 24px 13px 34px; }
+      .board-card { padding: 10px; border-radius: 14px; }
+      .panel { display: block; padding: 15px; }
+      .board-footer { align-items: flex-start; flex-direction: column; gap: 4px; }
+      .board-top span { text-align: right; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div class="eyebrow">MAKE YOUR OWN VENN DIAGRAM</div>
+      <h1>세 원 이미지 밴다이어그램</h1>
+      <p class="intro">이미지를 올리고, 겹치는 영역에 배치해서 나만의 밴다이어그램을 만들어 보세요.</p>
+    </header>
+
+    <div class="workspace">
+      <section class="board-card" aria-label="밴다이어그램 작업 공간">
+        <div class="board-top">
+          <strong>작업 영역</strong>
+          <span>이미지를 끌어서 옮기고 모서리로 크기를 조절하세요</span>
+        </div>
+        <div class="canvas-wrap" id="canvasWrap">
+          <canvas id="board" width="1000" height="720" aria-label="세 원 밴다이어그램"></canvas>
+          <div class="drop-hint">여기에 이미지 파일을 놓으세요</div>
+        </div>
+        <div class="board-footer">
+          <span>지원 형식: JPG · PNG · GIF · WEBP</span>
+          <span>이미지는 이 브라우저 안에서만 처리됩니다.</span>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <h2>다이어그램 설정</h2>
+
+        <div class="section">
+          <label class="upload-btn full" for="imageUpload" style="display:block;text-align:center">＋ 이미지 추가하기</label>
+          <input class="file-input" id="imageUpload" type="file" accept="image/*" multiple />
+          <p class="tiny-note">여러 장을 한 번에 추가할 수 있어요. 추가한 이미지는 마우스나 손가락으로 자유롭게 옮길 수 있습니다.</p>
+        </div>
+
+        <div class="section">
+          <div class="section-title"><label for="radius">원 크기</label><output id="radiusOut">220</output></div>
+          <input id="radius" type="range" min="130" max="250" value="220" />
+          <div class="section-title" style="margin-top:15px"><label for="spread">원 사이 간격</label><output id="spreadOut">120</output></div>
+          <input id="spread" type="range" min="80" max="180" value="120" />
+        </div>
+
+        <div class="section">
+          <div class="section-title"><label>원 제목</label><output>자유롭게 수정 가능</output></div>
+          <div class="label-fields">
+            <div class="label-row"><span class="swatch" style="background:#7387ee"></span><input id="label0" type="text" maxlength="18" value="외모" aria-label="첫 번째 원 제목" /></div>
+            <div class="label-row"><span class="swatch" style="background:#f0a45e"></span><input id="label1" type="text" maxlength="18" value="성격" aria-label="두 번째 원 제목" /></div>
+            <div class="label-row"><span class="swatch" style="background:#63b9a0"></span><input id="label2" type="text" maxlength="18" value="스토리" aria-label="세 번째 원 제목" /></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title"><label>선택한 이미지 크기</label><output id="imageSizeOut">-</output></div>
+          <input id="imageSize" type="range" min="45" max="360" value="160" disabled />
+          <div class="image-actions">
+            <button class="secondary-btn" id="sendBack" type="button" disabled>뒤로 보내기</button>
+            <button class="danger-btn" id="deleteImage" type="button" disabled>이미지 삭제</button>
+          </div>
+          <p class="tiny-note" id="selectionNote">이미지를 선택하면 크기 조절과 삭제를 할 수 있습니다.</p>
+        </div>
+
+        <div class="save-row">
+          <button class="primary-btn full" id="download" type="button">PNG 이미지로 저장</button>
+          <button class="secondary-btn full" id="reset" type="button">처음 상태로 되돌리기</button>
+        </div>
+      </aside>
+    </div>
+  </main>
+  <div class="toast" id="toast" role="status"></div>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById('board');
+      const ctx = canvas.getContext('2d');
+      const wrap = document.getElementById('canvasWrap');
+      const upload = document.getElementById('imageUpload');
+      const radiusInput = document.getElementById('radius');
+      const spreadInput = document.getElementById('spread');
+      const imageSizeInput = document.getElementById('imageSize');
+      const deleteButton = document.getElementById('deleteImage');
+      const sendBackButton = document.getElementById('sendBack');
+      const sizeOut = document.getElementById('imageSizeOut');
+      const selectionNote = document.getElementById('selectionNote');
+      const toast = document.getElementById('toast');
+
+      const W = canvas.width;
+      const H = canvas.height;
+      const palette = [
+        { fill: 'rgba(115,135,238,.27)', stroke: 'rgba(92,112,218,.88)' },
+        { fill: 'rgba(240,164,94,.27)', stroke: 'rgba(216,137,67,.88)' },
+        { fill: 'rgba(99,185,160,.27)', stroke: 'rgba(63,157,131,.9)' }
+      ];
+      let circles = [
+        { title: '외모', color: palette[0] },
+        { title: '성격', color: palette[1] },
+        { title: '스토리', color: palette[2] }
+      ];
+      let radius = 220;
+      let spread = 120;
+      let items = [];
+      let selectedId = null;
+      let pointerState = null;
+      let nextId = 1;
+      let toastTimer = null;
+
+      function circlePositions() {
+        return [
+          { x: 500 - spread, y: 290 },
+          { x: 500 + spread, y: 290 },
+          { x: 500, y: 290 + spread * .85 }
+        ];
+      }
+
+      function drawBackground() {
+        ctx.fillStyle = '#fbfbfd';
+        ctx.fillRect(0, 0, W, H);
+        ctx.save();
+        ctx.fillStyle = 'rgba(95,105,125,.075)';
+        for (let x = 24; x < W; x += 28) {
+          for (let y = 24; y < H; y += 28) {
+            ctx.beginPath();
+            ctx.arc(x, y, 1.05, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
+
+      function drawLabel(text, x, y, maxWidth) {
+        if (!text) return;
+        ctx.save();
+        ctx.font = '700 19px Pretendard, -apple-system, BlinkMacSystemFont, "Noto Sans KR", sans-serif';
+        const measured = ctx.measureText(text).width;
+        const boxW = Math.min(maxWidth, measured + 28);
+        const boxH = 34;
+        const left = Math.max(12, Math.min(W - boxW - 12, x - boxW / 2));
+        const top = Math.max(10, Math.min(H - boxH - 10, y - boxH / 2));
+        ctx.shadowColor = 'rgba(40,48,64,.08)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 2;
+        ctx.fillStyle = 'rgba(255,255,255,.92)';
+        roundRect(ctx, left, top, boxW, boxH, 17);
+        ctx.fill();
+        ctx.shadowColor = 'transparent';
+        ctx.fillStyle = '#343a46';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, left + boxW / 2, top + boxH / 2 + .5, boxW - 12);
+        ctx.restore();
+      }
+
+      function roundRect(c, x, y, w, h, r) {
+        c.beginPath();
+        c.moveTo(x + r, y);
+        c.arcTo(x + w, y, x + w, y + h, r);
+        c.arcTo(x + w, y + h, x, y + h, r);
+        c.arcTo(x, y + h, x, y, r);
+        c.arcTo(x, y, x + w, y, r);
+        c.closePath();
+      }
+
+      function drawCircles() {
+        const positions = circlePositions();
+        positions.forEach((p, i) => {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+          ctx.fillStyle = circles[i].color.fill;
+          ctx.fill();
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = circles[i].color.stroke;
+          ctx.stroke();
+          ctx.restore();
+        });
+        drawLabel(circles[0].title, positions[0].x - radius * .34, positions[0].y - radius * .49, 190);
+        drawLabel(circles[1].title, positions[1].x + radius * .34, positions[1].y - radius * .49, 190);
+        drawLabel(circles[2].title, positions[2].x, positions[2].y + radius * .54, 220);
+      }
+
+      function drawItems(showSelection = true) {
+        for (const item of items) {
+          if (!item.image.complete || !item.image.naturalWidth) continue;
+          ctx.save();
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(item.image, item.x, item.y, item.w, item.h);
+          if (showSelection && item.id === selectedId) {
+            ctx.lineWidth = 2;
+            ctx.setLineDash([7, 5]);
+            ctx.strokeStyle = '#4558d6';
+            ctx.strokeRect(item.x - 3, item.y - 3, item.w + 6, item.h + 6);
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.arc(item.x + item.w, item.y + item.h, 9, 0, Math.PI * 2);
+            ctx.fillStyle = '#4558d6';
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#fff';
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+      }
+
+      function render(showSelection = true) {
+        drawBackground();
+        drawCircles();
+        drawItems(showSelection);
+      }
+
+      function selectedItem() {
+        return items.find(item => item.id === selectedId) || null;
+      }
+
+      function updateSelectionUI() {
+        const item = selectedItem();
+        imageSizeInput.disabled = !item;
+        deleteButton.disabled = !item;
+        sendBackButton.disabled = !item;
+        if (item) {
+          imageSizeInput.value = Math.round(item.w);
+          sizeOut.textContent = `${Math.round(item.w)} px`;
+          selectionNote.textContent = '모서리 손잡이를 드래그하거나 위 슬라이더로 크기를 바꿀 수 있어요.';
+        } else {
+          sizeOut.textContent = '-';
+          selectionNote.textContent = '이미지를 선택하면 크기 조절과 삭제를 할 수 있습니다.';
+        }
+      }
+
+      function notify(message) {
+        toast.textContent = message;
+        toast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
+      }
+
+      function addFiles(fileList, startPoint) {
+        const files = Array.from(fileList || []).filter(file => file.type.startsWith('image/'));
+        if (!files.length) {
+          notify('이미지 파일을 선택해 주세요.');
+          return;
+        }
+        files.forEach((file, index) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+              const scale = Math.min(180 / img.naturalWidth, 180 / img.naturalHeight, 1);
+              const w = Math.max(45, img.naturalWidth * scale);
+              const h = Math.max(45, img.naturalHeight * scale);
+              const offset = (items.length % 7) * 18 + index * 12;
+              const point = startPoint || { x: 500 + offset, y: 335 + offset };
+              const item = {
+                id: nextId++, image: img,
+                x: Math.max(8, Math.min(W - w - 8, point.x - w / 2 + index * 14)),
+                y: Math.max(8, Math.min(H - h - 8, point.y - h / 2 + index * 14)),
+                w, h
+              };
+              items.push(item);
+              selectedId = item.id;
+              updateSelectionUI();
+              render();
+            };
+            img.onerror = () => notify(`${file.name}: 이미지를 불러오지 못했습니다.`);
+            img.src = reader.result;
+          };
+          reader.readAsDataURL(file);
+        });
+        upload.value = '';
+      }
+
+      function getPoint(event) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: (event.clientX - rect.left) * (W / rect.width),
+          y: (event.clientY - rect.top) * (H / rect.height)
+        };
+      }
+
+      function hitTest(point) {
+        for (let i = items.length - 1; i >= 0; i--) {
+          const item = items[i];
+          const handleX = item.x + item.w;
+          const handleY = item.y + item.h;
+          const d = Math.hypot(point.x - handleX, point.y - handleY);
+          if (item.id === selectedId && d < 22) return { item, mode: 'resize' };
+          if (point.x >= item.x - 5 && point.x <= item.x + item.w + 5 && point.y >= item.y - 5 && point.y <= item.y + item.h + 5) {
+            return { item, mode: 'move' };
+          }
+        }
+        return null;
+      }
+
+      canvas.addEventListener('pointerdown', event => {
+        const point = getPoint(event);
+        const hit = hitTest(point);
+        if (!hit) {
+          selectedId = null;
+          updateSelectionUI();
+          render();
+          return;
+        }
+        selectedId = hit.item.id;
+        pointerState = {
+          mode: hit.mode,
+          item: hit.item,
+          startX: point.x,
+          startY: point.y,
+          originalX: hit.item.x,
+          originalY: hit.item.y,
+          originalW: hit.item.w,
+          originalH: hit.item.h
+        };
+        canvas.setPointerCapture(event.pointerId);
+        updateSelectionUI();
+        render();
+        event.preventDefault();
+      });
+
+      canvas.addEventListener('pointermove', event => {
+        const point = getPoint(event);
+        if (!pointerState) {
+          const hit = hitTest(point);
+          canvas.style.cursor = hit ? (hit.mode === 'resize' ? 'nwse-resize' : 'grab') : 'default';
+          return;
+        }
+        const state = pointerState;
+        const dx = point.x - state.startX;
+        const dy = point.y - state.startY;
+        if (state.mode === 'move') {
+          state.item.x = Math.max(0, Math.min(W - state.item.w, state.originalX + dx));
+          state.item.y = Math.max(0, Math.min(H - state.item.h, state.originalY + dy));
+        } else {
+          const ratio = state.originalH / state.originalW;
+          const newW = Math.max(45, Math.min(420, state.originalW + dx + dy * .25));
+          state.item.w = newW;
+          state.item.h = newW * ratio;
+          state.item.x = Math.max(0, Math.min(W - state.item.w, state.originalX));
+          state.item.y = Math.max(0, Math.min(H - state.item.h, state.originalY));
+        }
+        updateSelectionUI();
+        render();
+      });
+
+      function finishPointer() { pointerState = null; }
+      canvas.addEventListener('pointerup', finishPointer);
+      canvas.addEventListener('pointercancel', finishPointer);
+      canvas.addEventListener('lostpointercapture', finishPointer);
+
+      canvas.addEventListener('dragover', event => { event.preventDefault(); wrap.classList.add('dragover'); });
+      canvas.addEventListener('dragleave', () => wrap.classList.remove('dragover'));
+      canvas.addEventListener('drop', event => {
+        event.preventDefault();
+        wrap.classList.remove('dragover');
+        const point = getPoint(event);
+        addFiles(event.dataTransfer.files, point);
+      });
+
+      upload.addEventListener('change', event => addFiles(event.target.files));
+      radiusInput.addEventListener('input', () => {
+        radius = Number(radiusInput.value);
+        document.getElementById('radiusOut').textContent = radius;
+        render();
+      });
+      spreadInput.addEventListener('input', () => {
+        spread = Number(spreadInput.value);
+        document.getElementById('spreadOut').textContent = spread;
+        render();
+      });
+
+      [0, 1, 2].forEach(i => {
+        const input = document.getElementById(`label${i}`);
+        input.addEventListener('input', () => {
+          circles[i].title = input.value;
+          render();
+        });
+      });
+
+      imageSizeInput.addEventListener('input', () => {
+        const item = selectedItem();
+        if (!item) return;
+        const ratio = item.h / item.w;
+        item.w = Number(imageSizeInput.value);
+        item.h = item.w * ratio;
+        item.x = Math.min(item.x, W - item.w);
+        item.y = Math.min(item.y, H - item.h);
+        updateSelectionUI();
+        render();
+      });
+
+      deleteButton.addEventListener('click', () => {
+        if (!selectedId) return;
+        items = items.filter(item => item.id !== selectedId);
+        selectedId = null;
+        updateSelectionUI();
+        render();
+      });
+
+      sendBackButton.addEventListener('click', () => {
+        const index = items.findIndex(item => item.id === selectedId);
+        if (index <= 0) return;
+        const [item] = items.splice(index, 1);
+        items.unshift(item);
+        render();
+        notify('이미지를 뒤로 보냈습니다.');
+      });
+
+      document.addEventListener('keydown', event => {
+        const tag = document.activeElement && document.activeElement.tagName;
+        if ((event.key === 'Delete' || event.key === 'Backspace') && selectedId && tag !== 'INPUT' && tag !== 'TEXTAREA') {
+          items = items.filter(item => item.id !== selectedId);
+          selectedId = null;
+          updateSelectionUI();
+          render();
+        }
+      });
+
+      document.getElementById('download').addEventListener('click', () => {
+        render(false);
+        canvas.toBlob(blob => {
+          if (!blob) {
+            notify('이미지를 저장하지 못했습니다.');
+            render();
+            return;
+          }
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = 'my-venn-diagram.png';
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          URL.revokeObjectURL(url);
+          notify('PNG 파일을 저장했습니다.');
+          render();
+        }, 'image/png');
+      });
+
+      document.getElementById('reset').addEventListener('click', () => {
+        items = [];
+        selectedId = null;
+        radius = 220;
+        spread = 120;
+        radiusInput.value = radius;
+        spreadInput.value = spread;
+        document.getElementById('radiusOut').textContent = radius;
+        document.getElementById('spreadOut').textContent = spread;
+        const defaults = ['외모', '성격', '스토리'];
+        defaults.forEach((value, i) => {
+          circles[i].title = value;
+          document.getElementById(`label${i}`).value = value;
+        });
+        updateSelectionUI();
+        render();
+        notify('처음 상태로 되돌렸습니다.');
+      });
+
+      updateSelectionUI();
+      render();
+    })();
+  </script>
+</body>
+</html>
