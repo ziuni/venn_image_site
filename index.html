@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>세 원 이미지 밴다이어그램</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
   <style>
     :root {
       --ink: #252a32;
@@ -83,8 +84,9 @@
     .drop-zone strong { font-size: 13px; }
     .drop-zone span { color: var(--muted); font-size: 11px; }
     .picker-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; margin-top: 7px; }
-    .picker-actions button { border: 1px solid #dfe3ed; border-radius: 9px; background: #fff; color: #3c4350; padding: 10px 8px; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .picker-actions button { display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid #dfe3ed; border-radius: 9px; background: #fff; color: #3c4350; padding: 10px 8px; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
     .picker-actions button:hover { background: #f1f3ff; border-color: #aab3f5; color: #3f50c4; }
+    .picker-icon { font-family: 'Material Symbols Outlined'; font-weight: normal; font-style: normal; font-size: 20px; line-height: 1; letter-spacing: normal; text-transform: none; display: inline-block; white-space: nowrap; direction: ltr; -webkit-font-feature-settings: 'liga'; -webkit-font-smoothing: antialiased; font-feature-settings: 'liga'; }
     .image-list { display: grid; gap: 7px; max-height: 235px; overflow-y: auto; margin-top: 10px; }
     .image-list-empty { padding: 11px; border-radius: 9px; background: #f7f8fa; color: var(--muted); font-size: 12px; text-align: center; }
     .image-row { display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px; border: 1px solid #eceef3; border-radius: 10px; background: #fff; text-align: left; cursor: pointer; }
@@ -146,8 +148,8 @@
             <strong>＋ 이미지를 여기에 끌어다 놓기</strong>
             <span>또는 원하는 방식으로 선택 · 여러 장 가능</span>
             <div class="picker-actions">
-              <button id="photosButton" type="button">Photos</button>
-              <button id="filesButton" type="button">Files</button>
+              <button id="photosButton" type="button"><span class="picker-icon" aria-hidden="true">image</span><span>사진 선택</span></button>
+              <button id="filesButton" type="button"><span class="picker-icon" aria-hidden="true">folder</span><span>파일 선택</span></button>
             </div>
           </div>
           <input class="file-input" id="imageUpload" type="file" accept="image/*" multiple />
@@ -283,10 +285,11 @@
       let imageListSignature = null;
 
       function circlePositions() {
+        // 기본 배치: 원 하나는 위, 두 개는 아래
         return [
-          { x: 500 - spread, y: 290 },
-          { x: 500 + spread, y: 290 },
-          { x: 500, y: 290 + spread * .85 }
+          { x: 500 - spread, y: 290 + spread * .85 },
+          { x: 500 + spread, y: 290 + spread * .85 },
+          { x: 500, y: 290 }
         ];
       }
 
@@ -351,9 +354,9 @@
           ctx.stroke();
           ctx.restore();
         });
-        drawLabel(circles[0].title, positions[0].x - circles[0].rx * .34, positions[0].y - circles[0].ry * .49, 190);
-        drawLabel(circles[1].title, positions[1].x + circles[1].rx * .34, positions[1].y - circles[1].ry * .49, 190);
-        drawLabel(circles[2].title, positions[2].x, positions[2].y + circles[2].ry * .54, 220);
+        drawLabel(circles[0].title, positions[0].x - circles[0].rx * .34, positions[0].y + circles[0].ry * .49, 190);
+        drawLabel(circles[1].title, positions[1].x + circles[1].rx * .34, positions[1].y + circles[1].ry * .49, 190);
+        drawLabel(circles[2].title, positions[2].x, positions[2].y - circles[2].ry * .54, 220);
       }
 
       function drawItems(showSelection = true) {
