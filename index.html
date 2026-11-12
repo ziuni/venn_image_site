@@ -62,6 +62,22 @@
     .swatch { width: 8px; height: 28px; border-radius: 8px; }
     .image-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
     .image-actions button { padding: 9px 8px; }
+    .drop-zone {
+      display: grid; place-items: center; gap: 5px; min-height: 92px; padding: 14px;
+      border: 1.5px dashed #b9c0d2; border-radius: 12px; background: #fafbff;
+      color: #555f76; text-align: center; cursor: pointer; transition: .15s ease;
+    }
+    .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); background: #f0f2ff; color: var(--accent); }
+    .drop-zone strong { font-size: 13px; }
+    .drop-zone span { color: var(--muted); font-size: 11px; }
+    .image-list { display: grid; gap: 7px; max-height: 235px; overflow-y: auto; margin-top: 10px; }
+    .image-list-empty { padding: 11px; border-radius: 9px; background: #f7f8fa; color: var(--muted); font-size: 12px; text-align: center; }
+    .image-row { display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px; border: 1px solid #eceef3; border-radius: 10px; background: #fff; text-align: left; cursor: pointer; }
+    .image-row:hover { background: #f8f9ff; border-color: #d8dcf7; }
+    .image-row.selected { border-color: #8995ec; background: #f2f3ff; box-shadow: 0 0 0 2px rgba(73,91,214,.08); }
+    .image-row img { width: 42px; height: 42px; border-radius: 7px; object-fit: contain; background: #f1f2f5; flex: 0 0 42px; }
+    .image-row-name { min-width: 0; flex: 1; color: #3b414d; font-size: 11px; line-height: 1.35; overflow-wrap: anywhere; }
+    .image-row-meta { display: block; color: var(--muted); font-size: 10px; margin-top: 3px; }
     .tiny-note { color: var(--muted); font-size: 11px; line-height: 1.55; margin: 9px 0 0; }
     .empty-selection { padding: 10px 11px; background: #f7f8fa; border-radius: 9px; color: var(--muted); font-size: 12px; line-height: 1.5; }
     .save-row { display: grid; gap: 8px; padding-top: 15px; border-top: 1px solid #eff0f3; }
@@ -111,16 +127,26 @@
         <h2>다이어그램 설정</h2>
 
         <div class="section">
-          <label class="upload-btn full" for="imageUpload" style="display:block;text-align:center">＋ 이미지 추가하기</label>
+          <div class="drop-zone" id="dropZone" role="button" tabindex="0" aria-label="이미지 파일 추가하기">
+            <strong>＋ 이미지를 여기에 끌어다 놓기</strong>
+            <span>또는 눌러서 파일 선택 · 여러 장 가능</span>
+          </div>
           <input class="file-input" id="imageUpload" type="file" accept="image/*" multiple />
-          <p class="tiny-note">여러 장을 한 번에 추가할 수 있어요. 추가한 이미지는 마우스나 손가락으로 자유롭게 옮길 수 있습니다.</p>
+          <div class="section-title" style="margin-top:14px"><label>업로드한 이미지</label><output id="imageCount">0개</output></div>
+          <div class="image-list" id="imageList" aria-live="polite">
+            <div class="image-list-empty">아직 추가한 이미지가 없습니다.</div>
+          </div>
+          <p class="tiny-note">목록에서 이미지를 누르면 선택할 수 있습니다. 작업 영역이나 위 업로드 상자에 파일을 놓아도 추가됩니다.</p>
         </div>
 
         <div class="section">
-          <div class="section-title"><label for="radius">원 크기</label><output id="radiusOut">220</output></div>
-          <input id="radius" type="range" min="130" max="250" value="220" />
+          <div class="section-title"><label for="radiusX">타원 가로 크기</label><output id="radiusXOut">220</output></div>
+          <input id="radiusX" type="range" min="130" max="290" value="220" />
+          <div class="section-title" style="margin-top:14px"><label for="radiusY">타원 세로 크기</label><output id="radiusYOut">220</output></div>
+          <input id="radiusY" type="range" min="120" max="260" value="220" />
           <div class="section-title" style="margin-top:15px"><label for="spread">원 사이 간격</label><output id="spreadOut">120</output></div>
           <input id="spread" type="range" min="80" max="180" value="120" />
+          <p class="tiny-note">가로와 세로 크기를 따로 조절해 원을 타원형으로 만들 수 있습니다.</p>
         </div>
 
         <div class="section">
@@ -157,7 +183,11 @@
       const ctx = canvas.getContext('2d');
       const wrap = document.getElementById('canvasWrap');
       const upload = document.getElementById('imageUpload');
-      const radiusInput = document.getElementById('radius');
+      const dropZone = document.getElementById('dropZone');
+      const imageList = document.getElementById('imageList');
+      const imageCount = document.getElementById('imageCount');
+      const radiusXInput = document.getElementById('radiusX');
+      const radiusYInput = document.getElementById('radiusY');
       const spreadInput = document.getElementById('spread');
       const imageSizeInput = document.getElementById('imageSize');
       const deleteButton = document.getElementById('deleteImage');
@@ -178,13 +208,15 @@
         { title: '성격', color: palette[1] },
         { title: '스토리', color: palette[2] }
       ];
-      let radius = 220;
+      let radiusX = 220;
+      let radiusY = 220;
       let spread = 120;
       let items = [];
       let selectedId = null;
       let pointerState = null;
       let nextId = 1;
       let toastTimer = null;
+      let imageListSignature = null;
 
       function circlePositions() {
         return [
@@ -247,7 +279,7 @@
         positions.forEach((p, i) => {
           ctx.save();
           ctx.beginPath();
-          ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+          ctx.ellipse(p.x, p.y, radiusX, radiusY, 0, 0, Math.PI * 2);
           ctx.fillStyle = circles[i].color.fill;
           ctx.fill();
           ctx.lineWidth = 3;
@@ -255,9 +287,9 @@
           ctx.stroke();
           ctx.restore();
         });
-        drawLabel(circles[0].title, positions[0].x - radius * .34, positions[0].y - radius * .49, 190);
-        drawLabel(circles[1].title, positions[1].x + radius * .34, positions[1].y - radius * .49, 190);
-        drawLabel(circles[2].title, positions[2].x, positions[2].y + radius * .54, 220);
+        drawLabel(circles[0].title, positions[0].x - radiusX * .34, positions[0].y - radiusY * .49, 190);
+        drawLabel(circles[1].title, positions[1].x + radiusX * .34, positions[1].y - radiusY * .49, 190);
+        drawLabel(circles[2].title, positions[2].x, positions[2].y + radiusY * .54, 220);
       }
 
       function drawItems(showSelection = true) {
@@ -289,6 +321,41 @@
         drawBackground();
         drawCircles();
         drawItems(showSelection);
+        renderImageList();
+      }
+
+      function renderImageList() {
+        imageCount.textContent = `${items.length}개`;
+        const signature = JSON.stringify({
+          selectedId,
+          items: items.map(item => [item.id, item.name, Math.round(item.w), Math.round(item.h)])
+        });
+        if (signature === imageListSignature) return;
+        imageListSignature = signature;
+        if (!items.length) {
+          imageList.innerHTML = '<div class="image-list-empty">아직 추가한 이미지가 없습니다.</div>';
+          return;
+        }
+        imageList.innerHTML = '';
+        items.forEach((item, index) => {
+          const row = document.createElement('button');
+          row.type = 'button';
+          row.className = `image-row${item.id === selectedId ? ' selected' : ''}`;
+          row.dataset.imageId = String(item.id);
+          row.setAttribute('aria-pressed', item.id === selectedId ? 'true' : 'false');
+          const thumb = document.createElement('img');
+          thumb.src = item.image.src;
+          thumb.alt = '';
+          const name = document.createElement('span');
+          name.className = 'image-row-name';
+          name.textContent = item.name || `이미지 ${index + 1}`;
+          const meta = document.createElement('span');
+          meta.className = 'image-row-meta';
+          meta.textContent = `${Math.round(item.w)} × ${Math.round(item.h)} px`;
+          name.appendChild(meta);
+          row.append(thumb, name);
+          imageList.appendChild(row);
+        });
       }
 
       function selectedItem() {
@@ -334,7 +401,7 @@
               const offset = (items.length % 7) * 18 + index * 12;
               const point = startPoint || { x: 500 + offset, y: 335 + offset };
               const item = {
-                id: nextId++, image: img,
+                id: nextId++, image: img, name: file.name,
                 x: Math.max(8, Math.min(W - w - 8, point.x - w / 2 + index * 14)),
                 y: Math.max(8, Math.min(H - h - 8, point.y - h / 2 + index * 14)),
                 w, h
@@ -439,10 +506,48 @@
         addFiles(event.dataTransfer.files, point);
       });
 
+      window.addEventListener('dragover', event => {
+        if (event.dataTransfer && Array.from(event.dataTransfer.types || []).includes('Files')) event.preventDefault();
+      });
+      window.addEventListener('drop', event => {
+        if (event.dataTransfer && Array.from(event.dataTransfer.types || []).includes('Files')) event.preventDefault();
+      });
+
       upload.addEventListener('change', event => addFiles(event.target.files));
-      radiusInput.addEventListener('input', () => {
-        radius = Number(radiusInput.value);
-        document.getElementById('radiusOut').textContent = radius;
+      dropZone.addEventListener('click', () => upload.click());
+      dropZone.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          upload.click();
+        }
+      });
+      ['dragenter', 'dragover'].forEach(type => dropZone.addEventListener(type, event => {
+        event.preventDefault();
+        event.stopPropagation();
+        dropZone.classList.add('dragover');
+      }));
+      ['dragleave', 'drop'].forEach(type => dropZone.addEventListener(type, event => {
+        event.preventDefault();
+        event.stopPropagation();
+        dropZone.classList.remove('dragover');
+      }));
+      dropZone.addEventListener('drop', event => addFiles(event.dataTransfer.files));
+      imageList.addEventListener('click', event => {
+        const row = event.target.closest('[data-image-id]');
+        if (!row) return;
+        selectedId = Number(row.dataset.imageId);
+        updateSelectionUI();
+        render();
+      });
+
+      radiusXInput.addEventListener('input', () => {
+        radiusX = Number(radiusXInput.value);
+        document.getElementById('radiusXOut').textContent = radiusX;
+        render();
+      });
+      radiusYInput.addEventListener('input', () => {
+        radiusY = Number(radiusYInput.value);
+        document.getElementById('radiusYOut').textContent = radiusY;
         render();
       });
       spreadInput.addEventListener('input', () => {
@@ -522,11 +627,14 @@
       document.getElementById('reset').addEventListener('click', () => {
         items = [];
         selectedId = null;
-        radius = 220;
+        radiusX = 220;
+        radiusY = 220;
         spread = 120;
-        radiusInput.value = radius;
+        radiusXInput.value = radiusX;
+        radiusYInput.value = radiusY;
         spreadInput.value = spread;
-        document.getElementById('radiusOut').textContent = radius;
+        document.getElementById('radiusXOut').textContent = radiusX;
+        document.getElementById('radiusYOut').textContent = radiusY;
         document.getElementById('spreadOut').textContent = spread;
         const defaults = ['외모', '성격', '스토리'];
         defaults.forEach((value, i) => {
